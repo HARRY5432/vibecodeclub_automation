@@ -1,0 +1,9 @@
+{"ts":"2026-10-26T01:40:20.803Z","level":"info","msg":"Vibe Code Club Telegram bot starting"}
+{"ts":"2026-10-26T01:40:28.721Z","level":"warn","msg":"no bot token yet; waiting for telegram_config.json"}
+{"ts":"2026-10-26T01:40:28.723Z","level":"warn","msg":"Telegram bot token missing; waiting for telegram_config.json"}
+{"ts":"2026-10-26T08:17:26.840Z","level":"info","msg":"Vibe Code Club Telegram bot starting"}
+{"ts":"2026-10-26T08:17:28.124Z","level":"warn","msg":"no bot token yet; waiting for telegram_config.json"}
+{"ts":"2026-10-26T08:17:28.126Z","level":"warn","msg":"Telegram bot token missing; waiting for telegram_config.json"}
+{"ts":"2026-10-26T12:05:58.655Z","level":"info","msg":"Vibe Code Club Telegram bot starting"}
+{"ts":"2026-10-26T12:05:59.466Z","level":"warn","msg":"no bot token yet; waiting for telegram_config.json"}
+{"ts":"2026-10-26T12:05:59.471Z","level":"warn","msg":"Telegram bot token missing; waiting for telegram_config.json"}

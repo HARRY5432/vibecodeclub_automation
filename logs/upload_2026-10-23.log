@@ -1,0 +1,4 @@
+{"ts": "2026-10-23T13:47:24.178816+00:00", "level": "error", "event": "FAILED slot 0 Dew5mGAi17R: ClipNotUpload: Clip upload failed during upload_settings: HTTP 403: {\"message\":\"login_required\",\"status\":\"fail\"}"}
+{"ts": "2026-10-23T14:20:58.182843+00:00", "level": "info", "event": "posted slot 0 peterstewiestartup/Dew5mGAi17R pk=4014327958531637955 trial=False"}
+{"ts": "2026-10-23T14:22:14.789463+00:00", "level": "info", "event": "posted slot 1 petercodelogic/DUvwDfNjzgM pk=4014328556479939234 trial=False"}
+{"ts": "2026-10-23T14:33:09.850688+00:00", "level": "info", "event": "posted slot 2 homerknowsai/DezZ3qBBLXv pk=4014334086242057167 trial=False"}

@@ -1,0 +1,56 @@
+{
+  "date": "2026-10-23",
+  "limit": 3,
+  "order": [
+    "peterstewiestartup",
+    "petercodelogic",
+    "homerknowsai",
+    "rick.theengineer",
+    "cs.bocchi",
+    "randomusefulwebsites",
+    "petergriffin.ai",
+    "peterencrypted",
+    "codewithpeterandstewie",
+    "infosec_peter"
+  ],
+  "count": 3,
+  "items": [
+    {
+      "creator": "peterstewiestartup",
+      "shortcode": "Dew5mGAi17R",
+      "caption_preview": "They all deal with money, but they play completely different games 🏙️\n\n👼 Angels: invest their OWN money, early\n🚀 VCs: invest other people's money in high-growth",
+      "files": [
+        "peterstewiestartup_Dew5mGAi17R.mp4",
+        "peterstewiestartup_Dew5mGAi17R.jpg",
+        "peterstewiestartup_Dew5mGAi17R.txt",
+        "peterstewiestartup_Dew5mGAi17R.json"
+      ],
+      "fetched_at": "2026-10-23T11:38:50.469658+00:00"
+    },
+    {
+      "creator": "petercodelogic",
+      "shortcode": "DUvwDfNjzgM",
+      "caption_preview": "Did you know your Windows PC is secretly sharing its upload bandwidth with strangers worldwide to deliver Microsoft updates? This default \"Delivery Optimization",
+      "files": [
+        "petercodelogic_DUvwDfNjzgM.mp4",
+        "petercodelogic_DUvwDfNjzgM.jpg",
+        "petercodelogic_DUvwDfNjzgM.txt",
+        "petercodelogic_DUvwDfNjzgM.json"
+      ],
+      "fetched_at": "2026-10-23T11:39:10.011451+00:00"
+    },
+    {
+      "creator": "homerknowsai",
+      "shortcode": "DezZ3qBBLXv",
+      "caption_preview": "Claude Code can now make videos, motion graphics and full presentations — no editor, no After Effects, just prompts\nRemotion is a new skill for Claude Code\n\nTur",
+      "files": [
+        "homerknowsai_DezZ3qBBLXv.mp4",
+        "homerknowsai_DezZ3qBBLXv.jpg",
+        "homerknowsai_DezZ3qBBLXv.txt",
+        "homerknowsai_DezZ3qBBLXv.json"
+      ],
+      "fetched_at": "2026-10-23T11:39:26.264894+00:00"
+    }
+  ],
+  "generated_at": "2026-10-23T11:39:31.265295+00:00"
+}

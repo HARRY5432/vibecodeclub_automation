@@ -1,0 +1,32 @@
+{
+  "date": "2026-10-03",
+  "limit": 4,
+  "order": [
+    "codewithpeterandstewie",
+    "infosec_peter",
+    "peterencrypted",
+    "homerknowsai",
+    "randomusefulwebsites",
+    "petergriffin.ai",
+    "peterstewiestartup",
+    "cs.bocchi",
+    "petercodelogic",
+    "rick.theengineer"
+  ],
+  "count": 1,
+  "items": [
+    {
+      "creator": "codewithpeterandstewie",
+      "shortcode": "DeAawDAMVEi",
+      "caption_preview": "If you use VS Code, you NEED to know these keyboard shortcuts 💻🔥\n\nMove code, edit multiple lines at once, and duplicate code without constantly cutting and past",
+      "files": [
+        "codewithpeterandstewie_DeAawDAMVEi.mp4",
+        "codewithpeterandstewie_DeAawDAMVEi.jpg",
+        "codewithpeterandstewie_DeAawDAMVEi.txt",
+        "codewithpeterandstewie_DeAawDAMVEi.json"
+      ],
+      "fetched_at": "2026-10-03T11:32:48.848008+00:00"
+    }
+  ],
+  "generated_at": "2026-10-03T11:42:46.871275+00:00"
+}

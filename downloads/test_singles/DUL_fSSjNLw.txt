@@ -1,0 +1,5 @@
+I was manually testing APIs… until VS Code did it for me 🤯⚡
+Thunder Client AI writes API tests, mocks responses, and runs everything inside VS Code — no Postman, no guessing, no copy-paste.
+If you’re still testing APIs the old way… you’re wasting hours 👀💻
+Follow for hidden AI tools developers don’t talk about 🚀
+#VSCode #APITesting #AIDeveloper #WebDevelopment #CodingTools

@@ -12,10 +12,10 @@
     "last_posted": null
   },
   "github": {
-    "runs": 2,
+    "runs": 3,
     "total_built": 0,
     "total_posted": 0,
-    "last_run_utc": "2026-11-08T20:33:22+00:00",
+    "last_run_utc": "2026-11-08T22:09:19+00:00",
     "state": "failure",
     "last_result": "failure",
     "last_note": "schedule",

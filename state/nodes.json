@@ -12,14 +12,14 @@
     "last_posted": null
   },
   "github": {
-    "runs": 0,
+    "runs": 1,
     "total_built": 0,
     "total_posted": 0,
-    "last_run_utc": null,
-    "state": null,
-    "last_result": null,
-    "last_note": null,
-    "host": null,
+    "last_run_utc": "2026-11-08T14:17:56+00:00",
+    "state": "failure",
+    "last_result": "failure",
+    "last_note": "schedule",
+    "host": "runnervm7aw5e",
     "last_built": null,
     "last_posted": null
   }

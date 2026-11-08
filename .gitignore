@@ -1,0 +1,49 @@
+# Secrets (never committed)
+.env
+.env.*
+publisher_auth.json
+publisher_cookies.json
+publisher_session.json
+client_secrets.json
+cookies*.txt
+*.json.secret
+token.json
+
+# State: only the ledgers shared between the two nodes are tracked
+state/*
+!state/uploads.json
+!state/nodes.json
+!state/meta_counter.json
+!state/downloads.json
+!state/download_archive.txt
+
+# Logs
+logs/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Source footage stays local (multi-GB reels)
+raw/
+downloads/
+
+# Shorts ARE committed so the night node can publish them
+shorts/*
+!shorts/manifest.json
+!shorts/s*.mp4
+!shorts/s*.txt
+!shorts/s*.jpg
+
+# Temp / lock / partial
+*.tmp
+*.lock
+*.part
+*.part-Frag*

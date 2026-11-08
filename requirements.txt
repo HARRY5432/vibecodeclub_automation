@@ -1,3 +1,8 @@
 instagrapi>=3.0.19
 instaloader>=4.15.3
 gallery-dl
+yt-dlp
+python-dotenv
+requests
+python-telegram-bot[job-queue]
+aiohttp

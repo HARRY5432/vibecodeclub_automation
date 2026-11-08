@@ -4,26 +4,31 @@
     {
       "time": "06:07",
       "label": "US prime evening + IN early",
+      "node": "github",
       "why": "US East 8:37 PM prime (previous day) plus India early risers"
     },
     {
       "time": "12:32",
       "label": "IN lunch + EU morning",
+      "node": "github",
       "why": "India 12-2 PM lunch peak plus EU mid-morning scroll"
     },
     {
       "time": "18:07",
       "label": "IN commute + US morning",
+      "node": "local",
       "why": "India 6-8 PM commute peak plus US East 8:37 AM and EU afternoon"
     },
     {
       "time": "21:32",
       "label": "IN night peak + US lunch",
+      "node": "github",
       "why": "India 8-11 PM top multiplier plus US East 12:02 PM lunch"
     },
     {
       "time": "23:37",
       "label": "IN late-night devs + US afternoon",
+      "node": "github",
       "why": "India late-night coder window plus US East 2:07 PM and EU late evening"
     }
   ]

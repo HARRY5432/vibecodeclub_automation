@@ -1,0 +1,165 @@
+name: Night Upload & Ops
+
+# GitHub owns the github-owned slots (see slots.json); the local PC owns the local slot.
+# Ownership is enforced in upload_shorts.py, so a stray run can never double-post a slot
+# the other node already published.
+on:
+  schedule:
+    - cron: '0 1 * * *'    # 06:07 IST (~)
+    - cron: '15 7 * * *'   # 12:32 IST (~)
+    - cron: '20 16 * * *'  # 21:32 IST (~)
+    - cron: '20 18 * * *'  # 23:37 IST (~)
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'What to run'
+        required: false
+        default: 'status'
+        type: choice
+        options:
+          - status
+          - upload
+          - debug
+          - cleanup
+
+concurrency:
+  group: night-ops
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  PYTHON_VERSION: '3.11'
+  TZ: 'Asia/Kolkata'
+  PIPELINE_NODE: github
+  PYTHONUNBUFFERED: '1'
+
+jobs:
+  night-ops:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      IG_PUBLISHER_USER: ${{ secrets.IG_PUBLISHER_USER }}
+      IG_PUBLISHER_PASSWORD: ${{ secrets.IG_PUBLISHER_PASSWORD }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_PAT || github.token }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: requirements.txt
+
+      - name: Install ffmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          ffmpeg -version | head -1
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Restore credentials
+        env:
+          PUBLISHER_AUTH: ${{ secrets.PUBLISHER_AUTH }}
+          PUBLISHER_COOKIES: ${{ secrets.PUBLISHER_COOKIES }}
+          PUBLISHER_SESSION: ${{ secrets.PUBLISHER_SESSION }}
+          IG_PUBLISHER_USER: ${{ secrets.IG_PUBLISHER_USER }}
+          IG_PUBLISHER_PASSWORD: ${{ secrets.IG_PUBLISHER_PASSWORD }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          files = {
+              "publisher_auth.json": os.getenv("PUBLISHER_AUTH", ""),
+              "publisher_cookies.json": os.getenv("PUBLISHER_COOKIES", ""),
+              "publisher_session.json": os.getenv("PUBLISHER_SESSION", ""),
+          }
+          for name, raw in files.items():
+              if raw.strip():
+                  Path(name).write_text(raw, encoding="utf-8")
+                  print(f"restored {name} ({len(raw)} bytes)")
+              else:
+                  print(f"WARNING: secret for {name} is not set")
+
+          env_lines = [
+              f"TELEGRAM_BOT_TOKEN={os.getenv('TELEGRAM_BOT_TOKEN', '')}",
+              f"TELEGRAM_CHAT_ID={os.getenv('TELEGRAM_CHAT_ID', '')}",
+              f"OPENROUTER_API_KEY={os.getenv('OPENROUTER_API_KEY', '')}",
+              f"IG_PUBLISHER_USER={os.getenv('IG_PUBLISHER_USER', '')}",
+              f"IG_PUBLISHER_PASSWORD={os.getenv('IG_PUBLISHER_PASSWORD', '')}",
+          ]
+          Path(".env").write_text("\n".join(env_lines) + "\n", encoding="utf-8")
+          PY
+
+      - name: Report node status (start)
+        run: python pipeline_status.py --start --note "workflow ${{ github.event.inputs.mode || 'schedule' }}" --notify --quiet || true
+
+      - name: Run pipeline
+        id: run
+        env:
+          MODE: ${{ github.event.inputs.mode || 'status' }}
+        run: |
+          MODE="${MODE:-status}"
+          case "$MODE" in
+            upload)
+              echo "posting every due slot owned by github"
+              python upload_shorts.py || echo "::warning::upload step exited non-zero"
+              python cleanup_shorts.py || true
+              ;;
+            cleanup)
+              python cleanup_shorts.py
+              ;;
+            debug)
+              python upload_shorts.py --dry-run || true
+              ;;
+            status|*)
+              python pipeline_status.py
+              ;;
+          esac
+
+      - name: Commit state + shorts
+        if: github.event.inputs.mode == 'upload' || github.event.inputs.mode == 'cleanup' || github.event_name == 'schedule'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A -- shorts state
+          if git diff --staged --quiet; then
+            echo "no repository changes"
+          else
+            git commit -m "chore(github): night ops $(date -u +'%Y-%m-%d %H:%M UTC')"
+            for attempt in 1 2 3; do
+              if git push; then echo "pushed"; break; fi
+              echo "push failed (attempt $attempt) - rebasing and retrying"
+              git pull --rebase --autostash || git rebase --abort || true
+              sleep 5
+            done
+          fi
+
+      - name: Report final status
+        if: always()
+        run: |
+          python pipeline_status.py \
+            --record --result "${{ job.status }}" \
+            --note "${{ github.event.inputs.mode || 'schedule' }}" \
+            --notify --quiet || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A -- state/nodes.json
+          if ! git diff --staged --quiet; then
+            git commit -m "chore(github): node status ${{ job.status }}"
+            git push || true
+          fi

@@ -1,0 +1,26 @@
+{
+  "local": {
+    "runs": 0,
+    "total_built": 0,
+    "total_posted": 0,
+    "last_run_utc": null,
+    "state": null,
+    "last_result": null,
+    "last_note": null,
+    "host": null,
+    "last_built": null,
+    "last_posted": null
+  },
+  "github": {
+    "runs": 0,
+    "total_built": 0,
+    "total_posted": 0,
+    "last_run_utc": null,
+    "state": null,
+    "last_result": null,
+    "last_note": null,
+    "host": null,
+    "last_built": null,
+    "last_posted": null
+  }
+}

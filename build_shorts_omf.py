@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
-"""build_shorts_omf.py — raw footage → vertical shorts (horizontal→vertical).
+"""build_shorts_omf.py - slice raw footage into shorts, original aspect ratio.
 
-Mapping (as requested): the TOP of the horizontal frame ends up on the RIGHT
-of the vertical short, the BOTTOM ends up on the LEFT.
+Cuts each raw video into short_seconds-long blocks (default 40s):
+shorts/s{YYYYMMDD}_001.mp4 = 0-40s, s{YYYYMMDD}_002.mp4 = 40-80s, etc.
+The final block keeps whatever time is left, even if shorter.
+
+No vertical conversion, no cropping, no re-rotation - original aspect ratio
+is preserved exactly as downloaded.
 
 Reliability notes
 -----------------
-* manifest.json is APPENDED to, never rebuilt from scratch. The previous
-  version wrote only the current run's entries, so every later run forgot
-  which raw videos it had already sliced and rebuilt them as new shorts.
+* manifest.json is APPENDED to, never rebuilt from scratch.
 * A failed encode no longer aborts the whole step when other clips succeeded;
   the failed ranges simply stay unclaimed and are retried next run.
-* `-threads 0` from config no longer gets coerced to 1 (which silently made
-  encoding single-threaded); the flag is omitted when <= 0.
+* `-threads 0` from config no longer gets coerced to 1; the flag is omitted
+  when <= 0.
 * Encode timeout is configurable (4K clips can exceed 5 minutes).
 """
 from __future__ import annotations
@@ -93,12 +95,7 @@ def consumed_sources(manifest) -> set:
 
 
 def batch_prefix() -> str:
-    """Date tag so short file names are unique across days.
-
-    Plain s001.mp4 names were reused as soon as cleanup emptied the folder,
-    which let a new, unpublished clip collide with an old ledger entry named
-    "s001" — cleanup then deleted a short that had never been posted.
-    """
+    """Date tag so short file names are unique across days."""
     return datetime.now().strftime("%Y%m%d")
 
 
@@ -134,52 +131,12 @@ def file_is_stable(path: Path) -> bool:
         return False
 
 
-def get_video_dimensions(ffprobe: str, path: Path) -> tuple[int, int]:
-    try:
-        out = subprocess.run(
-            [ffprobe, "-v", "error", "-select_streams", "v:0",
-             "-show_entries", "stream=width,height", "-of", "json", str(path)],
-            capture_output=True, text=True, timeout=30,
-        )
-        streams = json.loads(out.stdout).get("streams") or []
-        if streams:
-            return int(streams[0]["width"]), int(streams[0]["height"])
-    except Exception:
-        pass
-    return 0, 0
-
-
-def build_filter_chain(cfg: dict, src_w: int, src_h: int) -> str:
-    target_w = int(cfg.get("frame_width", 1080))
-    target_h = int(cfg.get("frame_height", 1920))
-    fps = cfg.get("fps", 30)
-
-    if src_w > src_h:
-        # top half -> right, bottom half -> left (transpose=1 rotates clockwise)
-        return (
-            f"fps={fps},split=2[top][bot],"
-            f"[top]crop={src_w}:{src_h // 2}:0:0[topc],"
-            f"[bot]crop={src_w}:{src_h // 2}:0:{src_h // 2}[botc],"
-            f"[topc][botc]vstack=inputs=2[stacked],"
-            f"[stacked]transpose=1[rotated],"
-            f"[rotated]scale={target_w}:{target_h}:force_original_aspect_ratio=increase,"
-            f"crop={target_w}:{target_h},format=yuv420p"
-        )
-    if str(cfg.get("fit", "cover")) == "cover":
-        return (
-            f"fps={fps},scale={target_w}:{target_h}:force_original_aspect_ratio=increase,"
-            f"crop={target_w}:{target_h},format=yuv420p"
-        )
-    return (
-        f"fps={fps},scale={target_w}:{target_h}:force_original_aspect_ratio=decrease,"
-        f"pad={target_w}:{target_h}:(ow-iw)/2:(oh-ih)/2:black,format=yuv420p"
-    )
-
-
 def build_cut_command(cfg: dict, src: Path, start: float, dur: float,
-                      out_path: Path, ffmpeg: str, src_w: int, src_h: int) -> list[str]:
+                      out_path: Path, ffmpeg: str) -> list[str]:
+    """Build ffmpeg command that slices [start, start+dur) without vertical
+    conversion. Original aspect ratio and resolution are preserved."""
     cmd = [ffmpeg, "-y", "-ss", f"{start:.3f}", "-t", f"{dur:.3f}", "-i", str(src)]
-    cmd += ["-vf", build_filter_chain(cfg, src_w, src_h)]
+    # No -vf filter: keep original resolution / aspect ratio as downloaded.
     if bool(cfg.get("keep_audio", True)):
         cmd += ["-c:a", "aac", "-b:a", "128k", "-ar", "44100", "-ac", "2"]
     else:
@@ -189,28 +146,33 @@ def build_cut_command(cfg: dict, src: Path, start: float, dur: float,
         "-preset", str(cfg.get("preset", "fast")),
         "-crf", str(cfg.get("crf", 20)),
     ]
-    # Cap the bitrate: a 40s 4K-derived clip at CRF 20 came out at ~19 Mbps
-    # (~96 MB), which GitHub rejects (>100 MB) and the night node can never
-    # fetch. 6 Mbps keeps a 40s short near 30 MB with no visible loss on a
-    # phone screen (Instagram re-encodes uploads anyway).
     max_kbps = int(cfg.get("max_bitrate_kbps", 0) or 0)
     if max_kbps > 0:
         cmd += ["-maxrate", f"{max_kbps}k", "-bufsize", f"{max_kbps * 2}k"]
     threads = int(cfg.get("ffmpeg_threads", 0) or 0)
     if threads > 0:
         cmd += ["-threads", str(threads)]
-    filter_threads = int(cfg.get("filter_threads", 0) or 0)
-    if filter_threads > 0:
-        cmd += ["-filter_threads", str(filter_threads)]
     cmd += ["-movflags", "+faststart", str(out_path)]
     return cmd
 
 
-def run_cut_with_retry(cfg, src, start, dur, out_path, ffmpeg, src_w, src_h) -> bool:
+def copy_sidecars(src: Path, out_path: Path) -> None:
+    """Copy original .txt caption and .jpg thumbnail from source to output short."""
+    for ext in (".txt", ".jpg"):
+        src_sidecar = src.with_suffix(ext)
+        if src_sidecar.exists():
+            dst_sidecar = out_path.with_suffix(ext)
+            try:
+                shutil.copy2(src_sidecar, dst_sidecar)
+                print(f"  sidecar copied: {dst_sidecar.name}", flush=True)
+            except Exception as e:
+                print(f"  WARNING: could not copy sidecar {src_sidecar.name}: {e}", flush=True)
+
+def run_cut_with_retry(cfg, src, start, dur, out_path, ffmpeg) -> bool:
     timeout = int(cfg.get("encode_timeout_sec", 900))
     for attempt in range(1, MAX_ENCODE_RETRIES + 1):
         try:
-            cmd = build_cut_command(cfg, src, start, dur, out_path, ffmpeg, src_w, src_h)
+            cmd = build_cut_command(cfg, src, start, dur, out_path, ffmpeg)
             proc = subprocess.run(
                 cmd, capture_output=True, text=True,
                 encoding="utf-8", errors="replace", timeout=timeout,
@@ -270,10 +232,6 @@ def process_pending(cfg: dict, raw_dir: Path, output_dir: Path, ffmpeg: str,
         if dur is None:
             print(f"SKIP {src.name}: cannot read duration", flush=True)
             continue
-        src_w, src_h = get_video_dimensions(ffprobe, src)
-        if not src_w or not src_h:
-            print(f"SKIP {src.name}: cannot read dimensions", flush=True)
-            continue
 
         entries = []
         t = 0.0
@@ -284,7 +242,7 @@ def process_pending(cfg: dict, raw_dir: Path, output_dir: Path, ffmpeg: str,
                 break
             out_name = f"s{prefix}_{idx:03d}.mp4"
             idx += 1
-            jobs.append((src, t, w, output_dir / out_name, src_w, src_h))
+            jobs.append((src, t, w, output_dir / out_name))
             entries.append(
                 {"short": out_name, "source": src.name,
                  "start": round(t, 3), "duration": round(w, 3)}
@@ -293,7 +251,7 @@ def process_pending(cfg: dict, raw_dir: Path, output_dir: Path, ffmpeg: str,
             if max_shorts and len(jobs) >= max_shorts:
                 break
         planned[src.name] = entries
-        print(f"plan  {src.name}: {len(entries)} short(s) ({src_w}x{src_h})", flush=True)
+        print(f"plan  {src.name}: {len(entries)} short(s)", flush=True)
         if max_shorts and len(jobs) >= max_shorts:
             break
 
@@ -310,18 +268,18 @@ def process_pending(cfg: dict, raw_dir: Path, output_dir: Path, ffmpeg: str,
     reused: list[str] = []
 
     def run_cut(job):
-        src, start, w, out_path, src_w, src_h = job
+        src, start, w, out_path = job
         if dry_run:
             return job, True, False
         if out_path.exists() and out_path.stat().st_size > 1024:
             return job, True, True
-        return job, run_cut_with_retry(cfg, src, start, w, out_path, ffmpeg, src_w, src_h), False
+        return job, run_cut_with_retry(cfg, src, start, w, out_path, ffmpeg), False
 
     print(f"Encoding {total} short(s) with {workers} worker(s)...", flush=True)
     with ThreadPoolExecutor(max_workers=workers) as ex:
         futures = [ex.submit(run_cut, j) for j in jobs]
         for fut in as_completed(futures):
-            (src, start, w, out_path, _, _), success, existed = fut.result()
+            (src, start, w, out_path), success, existed = fut.result()
             with lock:
                 done += 1
                 label = out_path.name
@@ -332,6 +290,8 @@ def process_pending(cfg: dict, raw_dir: Path, output_dir: Path, ffmpeg: str,
                     print(f"  [{done:>3}/{total}] (dry) {label} <- {src.name} @ {start:.0f}s", flush=True)
                 elif success:
                     made.append(label)
+                    if not dry_run:
+                        copy_sidecars(src, out_path)
                     print(f"  [{done:>3}/{total}] + {label} <- {src.name} @ {start:.0f}s", flush=True)
                 else:
                     failures.append((label, src.name))
@@ -351,7 +311,7 @@ def process_pending(cfg: dict, raw_dir: Path, output_dir: Path, ffmpeg: str,
         merged = kept + new_entries
         merged.sort(key=lambda e: natural_key(str(e.get("short", ""))))
         atomic_write_json(output_dir / "manifest.json", merged)
-        print(f"\n{len(made)} encoded, {len(reused)} reused — manifest now {len(merged)} entries.", flush=True)
+        print(f"\n{len(made)} encoded, {len(reused)} reused - manifest now {len(merged)} entries.", flush=True)
         manifest = merged
 
     if failures and not ok_names:
@@ -374,7 +334,7 @@ def main() -> int:
             die("--max-shorts requires a positive integer")
 
     cfg = load_config()
-    raw_dir = HERE / cfg.get("raw_dir", "raw")
+    raw_dir = HERE / cfg.get("raw_dir", "downloads")
     output_dir = HERE / cfg.get("output_dir", "shorts")
 
     ffmpeg = shutil.which("ffmpeg")
@@ -403,7 +363,7 @@ def main() -> int:
 
     manifest, rc = process_pending(cfg, raw_dir, output_dir, ffmpeg, ffprobe, dry_run, max_shorts)
     if dry_run:
-        print("\nDRY RUN — nothing written.", flush=True)
+        print("\nDRY RUN - nothing written.", flush=True)
     else:
         print(f"\nDone: {len(manifest)} short(s) tracked in '{output_dir.name}'.", flush=True)
     return rc
@@ -411,3 +371,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+

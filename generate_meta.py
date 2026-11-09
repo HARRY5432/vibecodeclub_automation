@@ -1,25 +1,11 @@
-﻿#!/usr/bin/env python3
-"""generate_meta.py â€” OpenRouter captions ("Day XX of Vibe Coders Club").
+#!/usr/bin/env python3
+"""generate_meta.py - caption fallback (original captions preferred).
 
-Reliability notes
------------------
-* Idempotent: an existing non-empty .txt sidecar is left alone (the old code
-  looked for a "TITLE:" marker it never wrote, so it called the API again on
-  every single run).
-* The series counter is persistent (state/meta_counter.json) and committed, so
-  numbering continues across runs and across both nodes instead of restarting
-  at 1 every day.
-* Numbering is per BATCH, not per reel: a batch is `daily_shorts` reels inside a
-  25-hour window, published as "Day N Reel 1" .. "Day N Reel 5"; only after the
-  fifth reel (or a closed 25h window) does the day roll over to N+1.
-* Missing key / API hiccup falls back to a usable caption and still consumes a
-  day number, so the series never repeats a number.
+Original captions come from download_reels.py (saved as .txt sidecars, with "@"
+stripped). This script is a safety net: if a .txt sidecar is missing, it
+generates a fallback caption via OpenRouter, also stripping "@".
 
-Usage:
-  python generate_meta.py [--force] [--limit N]
-
-  Titles come out as "Day 12 Reel 3 of Vibe Coders Club - <hook>"; reels 1..5 are
-  one batch, then the day rolls to 13.
+Idempotent: an existing non-empty .txt sidecar is left alone.
 """
 from __future__ import annotations
 
@@ -50,7 +36,6 @@ try:
 except Exception:
     _CFG = {}
 
-# one batch = daily_shorts reels inside batch_hours; the day rolls over after that
 PER_BATCH = max(1, int(_CFG.get("daily_shorts", 5) or 5))
 BATCH_HOURS = float(_CFG.get("batch_hours", 25) or 25)
 BATCH_SECONDS = BATCH_HOURS * 3600
@@ -84,7 +69,7 @@ def atomic_write_json(path: Path, data) -> None:
     os.replace(tmp, path)
 
 
-def _parse_utc(value) -> datetime | None:
+def _parse_utc(value):
     try:
         dt = datetime.fromisoformat(str(value))
     except Exception:
@@ -94,13 +79,7 @@ def _parse_utc(value) -> datetime | None:
     return dt.astimezone(timezone.utc)
 
 
-def allocate(state: dict) -> tuple[int, int, dict]:
-    """Take the next (Day, Reel) slot and return the state AFTER consuming it.
-
-    Reel numbers run 1..PER_BATCH inside one batch. The day only advances when
-    the batch is full, or when the batch window (25h) closed first â€” so an
-    under-filled day still rolls over instead of leaking reels into the next.
-    """
+def allocate(state):
     now = datetime.now(timezone.utc)
     state = dict(state or {})
     day = max(1, int(state.get("next_day", 1) or 1))
@@ -108,10 +87,8 @@ def allocate(state: dict) -> tuple[int, int, dict]:
     started = _parse_utc(state.get("batch_started_utc"))
 
     if reel < 1 or started is None:
-        # upgrade path: older state only had next_day
         reel, started = 1, now
     elif (now - started).total_seconds() > BATCH_SECONDS:
-        # the batch window closed without filling up â€” next batch is a new day
         day += 1
         reel, started = 1, now
 
@@ -127,41 +104,16 @@ def allocate(state: dict) -> tuple[int, int, dict]:
     return used_day, used_reel, state
 
 
-def build_prompt(short_name: str, day: int, reel: int) -> str:
-    return f"""
-You are a premium short-form gaming content writer.
-
-Task:
-Write a YouTube Shorts TITLE and DESCRIPTION for a gaming clip.
-
-Clip details:
-- File: {short_name}
-- Series position: Day {day} of Vibe Coders Club, reel {reel} of {PER_BATCH} in this batch
-- Theme: Vibe Coders Club / Tactical Gaming / Combat Highlights
-
-Requirements:
-- TITLE: must start with "Day {day} Reel {reel} of Vibe Coders Club" followed by a punchy hook. Max 70 chars.
-- DESCRIPTION: 2-4 sentences, hype-driven, gaming tone, hashtags at the end.
-- Tone: intense, tactical, Vibe Coders Club gaming community.
-
-Output EXACTLY this JSON and nothing else:
-{{
-  "title": "Day {day} Reel {reel} of Vibe Coders Club - <hook>",
-  "description": "<2-4 sentences>\\n\\n#ModernWarfare #Gaming #Tactical #Shorts"
-}}
-"""
-
-
-def call_openrouter(prompt: str) -> dict | None:
+def call_openrouter(prompt):
     if not OPENROUTER_API_KEY:
-        print("  OPENROUTER_API_KEY not set â€” using fallback caption", flush=True)
+        print("  OPENROUTER_API_KEY not set - using fallback caption", flush=True)
         return None
 
     payload = json.dumps(
         {
             "model": OPENROUTER_MODEL,
             "messages": [
-                {"role": "system", "content": "You are a premium gaming short-form content writer."},
+                {"role": "system", "content": "You are a premium short-form content writer."},
                 {"role": "user", "content": prompt},
             ],
             "temperature": 0.8,
@@ -195,13 +147,12 @@ def call_openrouter(prompt: str) -> dict | None:
     return None
 
 
-def fallback_meta(day: int, reel: int) -> dict:
+def fallback_meta(day, reel):
     return {
-        "title": f"Day {day} Reel {reel} of Vibe Coders Club - Tactical Highlight",
+        "title": f"Day {day} Reel {reel} of Vibe Coders Club - Highlight",
         "description": (
-            f"Day {day}, reel {reel} of {PER_BATCH} â€” intense Vibe Coders Club combat highlights. "
-            "Pure adrenaline, zero filler.\n\n"
-            "#ModernWarfare #Gaming #Tactical #CombatHighlights #Shorts"
+            f"Day {day}, reel {reel} of {PER_BATCH} - Vibe Coders Club content. "
+            "Pure content, zero filler.\n\n#VibeCodersClub #Shorts"
         ),
     }
 
@@ -238,10 +189,12 @@ def main() -> int:
                 pass
 
         day, reel, state = allocate(load_json(COUNTER_PATH, {}))
-        result = call_openrouter(build_prompt(short_path.name, day, reel)) or fallback_meta(day, reel)
+        result = call_openrouter(
+            f"Write a short caption for {short_path.name} (Day {day} Reel {reel} of Vibe Coders Club)"
+        ) or fallback_meta(day, reel)
 
-        title = str(result.get("title") or f"Day {day} Reel {reel} of Vibe Coders Club").strip()
-        description = str(result.get("description") or "").strip()
+        title = str(result.get("title") or f"Day {day} Reel {reel} of Vibe Coders Club").replace("@", "").strip()
+        description = str(result.get("description") or "").replace("@", "").strip()
         content = f"{title}\n\n{description}".strip()
 
         txt_path.write_text(content + "\n", encoding="utf-8")

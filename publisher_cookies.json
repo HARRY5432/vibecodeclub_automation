@@ -27,7 +27,7 @@
     },
     {
         "domain": ".instagram.com",
-        "expirationDate": 1800541088.737203,
+        "expirationDate": 1801932802.277222,
         "hostOnly": false,
         "httpOnly": false,
         "name": "ds_user_id",
@@ -40,7 +40,7 @@
     },
     {
         "domain": ".instagram.com",
-        "expirationDate": 1827325088.736835,
+        "expirationDate": 1828716802.276921,
         "hostOnly": false,
         "httpOnly": false,
         "name": "csrftoken",
@@ -49,7 +49,7 @@
         "secure": true,
         "session": false,
         "storeId": null,
-        "value": "UYKpOFhBHFjEb5fmeEWttHEWi0kxLLL9"
+        "value": "BhrtzCMdQFSCdhkeuUQlccj6cpzWgPmy"
     },
     {
         "domain": ".instagram.com",
@@ -79,7 +79,7 @@
     },
     {
         "domain": ".instagram.com",
-        "expirationDate": 1793369881,
+        "expirationDate": 1794761597,
         "hostOnly": false,
         "httpOnly": false,
         "name": "wd",
@@ -105,20 +105,19 @@
     },
     {
         "domain": ".instagram.com",
-        "expirationDate": 1824301072.55407,
+        "expirationDate": 1825692796.505379,
         "hostOnly": false,
         "httpOnly": true,
         "name": "sessionid",
         "path": "/",
-        "sameSite": "no_restriction",
+        "sameSite": null,
         "secure": true,
         "session": false,
         "storeId": null,
-        "value": "62354949077%3A8yOs4N11FboUGj%3A21%3AAYkX4SbqoXMnh8Jxh1q2jeeMTTTrD4R5D2czPNIbJg"
+        "value": "62354949077%3AS1uFeBn3F2TpVx%3A5%3AAYnCs_A4_U-uAV1ppprpu1yunn4cd0YNVMM5F22-Mg"
     },
     {
         "domain": ".instagram.com",
-        "expirationDate": 1824301087,
         "hostOnly": false,
         "httpOnly": true,
         "name": "rur",
@@ -127,6 +126,6 @@
         "secure": true,
         "session": true,
         "storeId": null,
-        "value": "\"PRN\\05462354949077\\0541824301087:01ff82cbe555eac01ce1e0695fea45edf0df7ccf0a8d2d38168838801155b0e89adc33be\""
+        "value": "HIL%2C17841462312334368%2C1795366400%3A01ffbc345b657ef1e7ada27f48eda1649364f17c7326e580601a056ebfea767bf33930b6"
     }
 ]

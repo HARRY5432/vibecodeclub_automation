@@ -5,6 +5,10 @@ Downloads the latest reel from every Instagram creator listed in creators.txt,
 using yt-dlp's download archive (state/download_archive.txt) so a reel is never
 downloaded twice, even after its raw file is consumed or deleted.
 
+For every downloaded reel we also keep:
+  - the original thumbnail (as downloaded, no re-encoding / no vertical crop)
+  - the original caption text (description) in a .txt sidecar, with "@" stripped
+
 Creators rotate, so every configured creator actually gets used.
 .part cleanup only touches files older than 30 minutes.
 
@@ -31,6 +35,7 @@ ARCHIVE_PATH = STATE_DIR / "download_archive.txt"
 ROTATION_PATH = STATE_DIR / "downloads.json"
 
 VIDEO_EXT = {".mp4", ".mov", ".mkv", ".avi", ".mxf", ".ts", ".webm", ".m4v"}
+THUMB_EXT = {".jpg", ".jpeg", ".webp", ".png"}
 STALE_PART_SEC = 30 * 60
 
 for _stream in (sys.stdout, sys.stderr):
@@ -94,6 +99,55 @@ def cleanup_stale_partials(raw_dir: Path) -> None:
                 pass
 
 
+def strip_ats(text: str) -> str:
+    """Remove '@' symbols from caption text."""
+    if not text:
+        return text
+    return text.replace("@", "")
+
+
+def write_caption_sidecar(info_path: Path) -> None:
+    """Read description from yt-dlp info JSON, strip '@', write .txt sidecar."""
+    try:
+        info = json.loads(info_path.read_text(encoding="utf-8"))
+    except Exception as e:
+        print(f"  WARNING: could not read info json {info_path.name}: {e}", flush=True)
+        return
+
+    description = info.get("description") or ""
+    caption = strip_ats(description).strip()
+
+    txt_path = info_path.with_suffix(".txt")
+    txt_path.write_text(caption + "\n", encoding="utf-8")
+    print(f"  wrote caption sidecar: {txt_path.name} ({len(caption)} chars)", flush=True)
+
+
+def normalize_thumbnail(info_path: Path) -> None:
+    """Ensure a .jpg thumbnail exists next to the video (keep original as-is)."""
+    base = info_path.name
+    if base.endswith(".info.json"):
+        base = base[: -len(".info.json")]
+    else:
+        base = info_path.stem
+
+    for ext in THUMB_EXT:
+        thumb_candidate = info_path.parent / f"{base}{ext}"
+        if thumb_candidate.exists():
+            jpg_path = info_path.parent / f"{base}.jpg"
+            if thumb_candidate.suffix.lower() != ".jpg":
+                try:
+                    import shutil as _shutil
+                    _shutil.copy2(thumb_candidate, jpg_path)
+                    print(f"  thumbnail copied as .jpg: {jpg_path.name}", flush=True)
+                except Exception as e:
+                    print(f"  WARNING: could not copy thumbnail: {e}", flush=True)
+            else:
+                print(f"  thumbnail present: {thumb_candidate.name}", flush=True)
+            return
+
+    print(f"  WARNING: no thumbnail found for {base}", flush=True)
+
+
 def next_creator(cfg: dict) -> tuple[str, int]:
     creators = load_creators()
     if not creators:
@@ -113,13 +167,17 @@ def download_one(cfg: dict, creator_url: str, out_dir: Path, slot: int) -> bool:
     )
     items = int(cfg.get("download_scan_items", 10) or 10)
 
+    out_tmpl = str(out_dir / "%(uploader)s_%(id)s.%(ext)s")
+
     cmd = yt_dlp_cmd() + [
         "--playlist-items", f"1-{items}",
         "--max-downloads", "1",
         "--download-archive", str(ARCHIVE_PATH),
         "-f", fmt,
         "--merge-output-format", "mp4",
-        "-o", str(out_dir / "%(uploader)s_%(id)s.%(ext)s"),
+        "-o", out_tmpl,
+        "--write-thumbnail",
+        "--write-info-json",
         "--no-playlist",
         "--no-overwrites",
         "--continue",
@@ -143,6 +201,11 @@ def download_one(cfg: dict, creator_url: str, out_dir: Path, slot: int) -> bool:
     if result.returncode != 0:
         print(f"  WARNING: yt-dlp exited with {result.returncode}", flush=True)
         return False
+
+    for info_path in sorted(out_dir.glob("*.info.json")):
+        write_caption_sidecar(info_path)
+        normalize_thumbnail(info_path)
+
     return True
 
 

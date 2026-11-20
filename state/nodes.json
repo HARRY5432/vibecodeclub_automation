@@ -15,11 +15,11 @@
     "runs": 45,
     "total_built": 0,
     "total_posted": 0,
-    "last_run_utc": "2026-11-19T23:10:24+00:00",
-    "state": "success",
-    "last_result": "success",
-    "last_note": "schedule",
-    "host": "ip-10-0-138-58",
+    "last_run_utc": "2026-11-20T00:48:58+00:00",
+    "state": "running",
+    "last_result": "running",
+    "last_note": "workflow schedule",
+    "host": "ip-10-0-141-34",
     "last_built": null,
     "last_posted": null
   }
